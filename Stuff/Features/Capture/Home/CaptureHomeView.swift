@@ -5,44 +5,47 @@ struct CaptureHomeView: View {
     @State private var isCameraPresented = false
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { timeline in
-            GeometryReader { geometry in
-                ZStack {
-                    AppPalette.background.ignoresSafeArea()
+        NavigationStack {
+            TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                GeometryReader { geometry in
+                    ZStack {
+                        AppPalette.background.ignoresSafeArea()
 
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 0) {
-                            Color.clear.frame(height: 26)
-                            CaptureHeroView(
-                                now: timeline.date,
-                                width: geometry.size.width,
-                                hidesText: scrollOffset >= 26,
-                                onCapture: { isCameraPresented = true }
-                            )
-                            DateCollectionView(now: timeline.date)
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 0) {
+                                Color.clear.frame(height: 26)
+                                CaptureHeroView(
+                                    now: timeline.date,
+                                    width: geometry.size.width,
+                                    hidesText: scrollOffset >= 26,
+                                    onCapture: { isCameraPresented = true }
+                                )
+                                DateCollectionView(now: timeline.date, onCapture: { isCameraPresented = true })
+                            }
+                            .frame(maxWidth: 620)
+                            .frame(maxWidth: .infinity)
+                            .padding(.bottom, 220)
                         }
-                        .frame(maxWidth: 620)
-                        .frame(maxWidth: .infinity)
-                        .padding(.bottom, 220)
-                    }
-                    .defaultScrollAnchor(.top, for: .initialOffset)
-                    .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                        max(0, geometry.contentOffset.y + geometry.contentInsets.top)
-                    } action: { _, newOffset in
-                        scrollOffset = newOffset
+                        .defaultScrollAnchor(.top, for: .initialOffset)
+                        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                            max(0, geometry.contentOffset.y + geometry.contentInsets.top)
+                        } action: { _, newOffset in
+                            scrollOffset = newOffset
+                        }
+                        .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
                     }
                     .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
-                }
-                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
-                .overlay(alignment: .top) {
-                    if scrollOffset >= 26 && stickyTextOpacity > 0 {
-                        CaptureHeroTextView(now: timeline.date)
-                            .frame(maxWidth: .infinity)
-                            .background(AppPalette.background)
-                            .opacity(stickyTextOpacity)
-                            .allowsHitTesting(false)
+                    .overlay(alignment: .top) {
+                        if scrollOffset >= 26 && stickyTextOpacity > 0 {
+                            CaptureHeroTextView(now: timeline.date)
+                                .frame(maxWidth: .infinity)
+                                .background(AppPalette.background)
+                                .opacity(stickyTextOpacity)
+                                .allowsHitTesting(false)
+                        }
                     }
                 }
+                .toolbar(.hidden, for: .navigationBar)
             }
         }
         .fullScreenCover(isPresented: $isCameraPresented) {

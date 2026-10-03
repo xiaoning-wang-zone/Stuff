@@ -1,8 +1,10 @@
 import SwiftUI
+import SwiftData
 
 private enum AppTab: Hashable {
     case capture
     case storage
+    case inspiration
 }
 
 struct ContentView: View {
@@ -17,6 +19,10 @@ struct ContentView: View {
             Tab("Storage", systemImage: "archivebox", value: AppTab.storage) {
                 StorageView()
             }
+
+            Tab("Inspiration", systemImage: "sparkles", value: AppTab.inspiration) {
+                InspirationView()
+            }
         }
         .tint(AppPalette.orange)
         .preferredColorScheme(.light)
@@ -25,4 +31,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .modelContainer(for: [StoredCapture.self, StoredItem.self], inMemory: true)
 }

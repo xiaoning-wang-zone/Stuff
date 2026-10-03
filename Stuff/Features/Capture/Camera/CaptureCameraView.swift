@@ -20,9 +20,11 @@ struct CaptureCameraView: View {
                 Color.black.ignoresSafeArea()
 
                 if hasCameraAccess {
-                    CameraPicker(onCapture: openSegmentation, captureRequest: captureRequest)
-                        .id(cameraSessionID)
-                        .ignoresSafeArea()
+                    if photoForSegmentation == nil {
+                        CameraPicker(onCapture: openSegmentation, captureRequest: captureRequest)
+                            .id(cameraSessionID)
+                            .ignoresSafeArea()
+                    }
                 } else {
                     unavailableView
                 }
@@ -79,9 +81,12 @@ struct CaptureCameraView: View {
         .onChange(of: selectedPhoto) { _, item in
             guard let item else { return }
             Task {
-                guard let data = try? await item.loadTransferable(type: Data.self),
-                      let image = UIImage(data: data) else { return }
-                openSegmentation(image)
+                guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+                let decoded = await Task.detached(priority: .userInitiated) {
+                    CaptureImageDecoder.decode(data)
+                }.value
+                guard !Task.isCancelled, let decoded else { return }
+                openSegmentation(decoded.image)
             }
         }
     }
@@ -145,6 +150,9 @@ struct CaptureCameraView: View {
     }
 
     private func prepareCamera() async {
+        #if targetEnvironment(simulator)
+        cameraMessage = "The simulator has no live camera. Tap the photo button below to choose an image."
+        #else
         guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
             cameraMessage = "Camera is unavailable on this device. You can choose a photo instead."
             return
@@ -165,6 +173,7 @@ struct CaptureCameraView: View {
         @unknown default:
             cameraMessage = "Camera is unavailable right now."
         }
+        #endif
     }
 
     private func openSegmentation(_ image: UIImage) {

@@ -75,6 +75,13 @@ nonisolated enum ForegroundSegmenter {
         let pixelHeight = image.size.height * image.scale
         guard pixelWidth > 0, pixelHeight > 0 else { throw SegmentationError.invalidImage }
 
+        if max(pixelWidth, pixelHeight) <= 2048,
+           image.imageOrientation == .up,
+           image.scale == 1,
+           image.cgImage != nil {
+            return image
+        }
+
         let scale = min(1, 2048 / max(pixelWidth, pixelHeight))
         let size = CGSize(width: pixelWidth * scale, height: pixelHeight * scale)
         let format = UIGraphicsImageRendererFormat()

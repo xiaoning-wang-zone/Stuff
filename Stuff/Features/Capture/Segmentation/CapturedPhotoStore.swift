@@ -7,8 +7,14 @@ enum CapturedPhotoStore {
         case imageEncodingFailed
     }
 
+    static var capturesDirectory: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Captures", isDirectory: true)
+    }
+
     @discardableResult
     static func save(
+        id: UUID,
         original: UIImage,
         foreground: UIImage,
         items: [UIImage]
@@ -22,9 +28,7 @@ enum CapturedPhotoStore {
             return data
         }
 
-        let capturesDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Captures", isDirectory: true)
-        let photoDirectory = capturesDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let photoDirectory = capturesDirectory.appendingPathComponent(id.uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: photoDirectory, withIntermediateDirectories: true)
 
         do {

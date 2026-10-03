@@ -1,8 +1,10 @@
 #if os(iOS)
 import SwiftUI
+import SwiftData
 import UIKit
 
 struct SegmentationReviewView: View {
+    @Environment(\.modelContext) private var modelContext
     let image: UIImage
     let onRetake: () -> Void
     let onSaved: () -> Void
@@ -13,6 +15,11 @@ struct SegmentationReviewView: View {
     @State private var errorMessage: String?
     @State private var showsSaveError = false
     @State private var isSaving = false
+    @State private var isAnalyzing = false
+    @State private var drafts: [ItemDraft] = []
+    @State private var showingItemReview = false
+    @State private var saveErrorMessage = "Please try again."
+    @State private var captureDate = Date.now
 
     private let background = Color(red: 0.48, green: 0.40, blue: 0.32)
 
@@ -21,18 +28,27 @@ struct SegmentationReviewView: View {
             ZStack {
                 background.ignoresSafeArea()
 
-                Image(uiImage: segmentation?.sourceImage ?? image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .opacity(originalOpacity)
+                GeometryReader { canvas in
+                    ZStack {
+                        Image(uiImage: segmentation?.sourceImage ?? image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: canvas.size.width, height: canvas.size.height)
+                            .clipped()
+                            .opacity(originalOpacity)
 
-                if let segmentation {
-                    Image(uiImage: displayedCutout(from: segmentation))
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        if let segmentation {
+                            Image(uiImage: displayedCutout(from: segmentation))
+                                .resizable()
+                                .aspectRatio(contentMode: selectedItemIndex == nil ? .fill : .fit)
+                                .frame(width: canvas.size.width, height: canvas.size.height)
+                                .clipped()
+                        }
+                    }
+                    .frame(width: canvas.size.width, height: canvas.size.height)
+                    .clipped()
                 }
+                .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     header
@@ -41,7 +57,7 @@ struct SegmentationReviewView: View {
 
                     Spacer()
 
-                    if segmentation == nil {
+                    if segmentation == nil || isAnalyzing {
                         processingMessage
                             .padding(.horizontal, 28)
                     } else if let selectedItemIndex, let segmentation {
@@ -64,10 +80,11 @@ struct SegmentationReviewView: View {
         }
         .preferredColorScheme(.dark)
         .task { await segmentPhoto() }
-        .alert("Couldn’t save photo", isPresented: $showsSaveError) {
+        .sheet(isPresented: $showingItemReview) { itemReviewSheet }
+        .alert("Couldn’t save items", isPresented: $showsSaveError) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Please try again.")
+            Text(saveErrorMessage)
         }
     }
 
@@ -108,7 +125,7 @@ struct SegmentationReviewView: View {
             } else {
                 ProgressView()
                     .tint(.white)
-                Text("Finding items…")
+                Text(isAnalyzing ? "Identifying items on this iPhone…" : "Finding items…")
             }
         }
         .font(.system(size: 17, weight: .medium))
@@ -126,7 +143,7 @@ struct SegmentationReviewView: View {
 
             Spacer()
 
-            Button(action: save) {
+            Button { showingItemReview = true } label: {
                 Group {
                     if isSaving {
                         ProgressView().tint(AppPalette.orange)
@@ -139,8 +156,8 @@ struct SegmentationReviewView: View {
                 .frame(width: 104, height: 104)
                 .background(Color(red: 0.15, green: 0.15, blue: 0.15), in: Circle())
             }
-            .disabled(segmentation == nil || isSaving)
-            .accessibilityLabel("Save segmented items")
+            .disabled(segmentation == nil || isAnalyzing || isSaving)
+            .accessibilityLabel("Review and save items")
 
             Spacer()
 
@@ -187,6 +204,11 @@ struct SegmentationReviewView: View {
             withAnimation(.easeInOut(duration: 1.2)) {
                 originalOpacity = 0
             }
+            isAnalyzing = true
+            drafts = await ItemAnalyzer.analyze(output.itemImages, capturedAt: captureDate)
+            isAnalyzing = false
+            guard !Task.isCancelled else { return }
+            showingItemReview = true
         } catch {
             guard !Task.isCancelled else { return }
             errorMessage = error.localizedDescription
@@ -194,18 +216,111 @@ struct SegmentationReviewView: View {
     }
 
     private func save() {
-        guard let segmentation else { return }
+        guard let segmentation, drafts.count == segmentation.itemImages.count else { return }
         isSaving = true
+        let captureID = UUID()
+        let capturedAt = captureDate
         do {
-            try CapturedPhotoStore.save(
+            let folder = try CapturedPhotoStore.save(
+                id: captureID,
                 original: segmentation.sourceImage,
                 foreground: segmentation.foregroundImage,
                 items: segmentation.itemImages
             )
-            onSaved()
+            let capture = StoredCapture(id: captureID, capturedAt: capturedAt, folderName: captureID.uuidString)
+            modelContext.insert(capture)
+            let items = drafts.enumerated().map { index, draft in
+                StoredItem(
+                    captureID: captureID,
+                    itemNumber: index + 1,
+                    name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Unknown item" : draft.name,
+                    categoryName: draft.categoryName,
+                    capturedAt: capturedAt,
+                    expiresAt: draft.hasExpiryEstimate ? draft.expiresAt : nil,
+                    expirySource: draft.hasExpiryEstimate ? draft.expirySource : "unknown",
+                    storageNote: draft.storageNote,
+                    needsReview: draft.name == "Unknown item" || draft.categoryName == "Unknown" || !draft.hasExpiryEstimate
+                )
+            }
+            items.forEach { modelContext.insert($0) }
+            do {
+                try modelContext.save()
+                onSaved()
+            } catch {
+                items.forEach { modelContext.delete($0) }
+                modelContext.delete(capture)
+                try? FileManager.default.removeItem(at: folder)
+                throw error
+            }
         } catch {
             isSaving = false
+            saveErrorMessage = error.localizedDescription
             showsSaveError = true
+        }
+    }
+
+    private var itemReviewSheet: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("Check each suggestion before saving. Dates are estimates based on the photo and stated storage condition; use the package date when you have one.")
+                        .font(.footnote)
+                }
+
+                ForEach(drafts.indices, id: \.self) { index in
+                    Section("Item \(index + 1)") {
+                        HStack {
+                            Image(uiImage: drafts[index].image)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 74, height: 74)
+                            TextField("Item name", text: $drafts[index].name)
+                        }
+
+                        Picker("Category", selection: $drafts[index].categoryName) {
+                            Text("Unknown").tag("Unknown")
+                            ForEach(FoodCategory.all) { category in
+                                Text(category.name).tag(category.name)
+                            }
+                        }
+
+                        Toggle("Set expiry date", isOn: Binding(
+                            get: { drafts[index].hasExpiryEstimate },
+                            set: { enabled in
+                                drafts[index].hasExpiryEstimate = enabled
+                                if enabled && drafts[index].expiresAt == nil {
+                                    drafts[index].expiresAt = .now
+                                    drafts[index].expirySource = "manual"
+                                }
+                            }
+                        ))
+                        if drafts[index].hasExpiryEstimate {
+                            DatePicker(
+                                "Estimated expiry",
+                                selection: Binding(
+                                    get: { drafts[index].expiresAt ?? .now },
+                                    set: {
+                                        drafts[index].expiresAt = $0
+                                        drafts[index].expirySource = "manual"
+                                    }
+                                ),
+                                displayedComponents: .date
+                            )
+                            TextField("Storage assumption", text: $drafts[index].storageNote)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Review items")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showingItemReview = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { save() }
+                        .disabled(isSaving || drafts.isEmpty)
+                }
+            }
         }
     }
 }
