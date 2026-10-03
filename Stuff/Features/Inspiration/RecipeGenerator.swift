@@ -64,21 +64,40 @@ enum RecipeGenerator {
             "Create one meal using ALL of these selected Storage items. Each item must appear in the cooking instructions and be used in the meal; do not silently omit or replace any of them. You may add a few basic pantry ingredients, listed separately. If an item is not edible, unknown, or incompatible with a safe meal, set canMakeMeal to false and explain why. Selected items:\n\(ingredientList)"
         }
         let recipe = response.content
-        let steps = recipe.steps.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        return try makeResult(
+            title: recipe.title,
+            summary: recipe.summary,
+            ingredients: ingredients,
+            additionalIngredients: recipe.additionalIngredients,
+            steps: recipe.steps,
+            canMakeMeal: recipe.canMakeMeal
+        )
+    }
+
+    /// Normalize and validate the response without requiring Apple Intelligence.
+    static func makeResult(
+        title: String,
+        summary: String,
+        ingredients: [String],
+        additionalIngredients: [String],
+        steps: [String],
+        canMakeMeal: Bool
+    ) throws -> RecipeResult {
+        let steps = steps.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-        guard !recipe.canMakeMeal || !steps.isEmpty else {
+        guard !canMakeMeal || !steps.isEmpty else {
             throw RecipeGenerationError.emptyResponse
         }
 
         return RecipeResult(
-            title: recipe.title.trimmingCharacters(in: .whitespacesAndNewlines),
-            summary: recipe.summary.trimmingCharacters(in: .whitespacesAndNewlines),
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            summary: summary.trimmingCharacters(in: .whitespacesAndNewlines),
             selectedIngredients: ingredients,
-            additionalIngredients: recipe.additionalIngredients
+            additionalIngredients: additionalIngredients
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty },
             steps: steps,
-            canMakeMeal: recipe.canMakeMeal
+            canMakeMeal: canMakeMeal
         )
     }
 }
