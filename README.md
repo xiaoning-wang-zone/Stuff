@@ -56,3 +56,25 @@ The Xcode project uses a file-system-synchronized source group, so files in thes
 Open `Stuff.xcodeproj` in Xcode. In the **Stuff** target's **Signing & Capabilities**, enable automatic signing and select your Apple development team or Personal Team. Connect and trust your iPhone, enable **Settings → Privacy & Security → Developer Mode** if prompted, select the phone as the run destination, and press **Run**. If iOS reports an untrusted developer, open **Settings → General → VPN & Device Management** and allow the developer profile.
 
 The project can be built in Xcode for an iPhone. Recipe generation itself requires an Apple Intelligence-capable iPhone with Apple Intelligence enabled.
+
+## Unit tests
+
+The shared **Stuff** scheme includes the **StuffTests** target. Select an iOS 27 Simulator in Xcode and press **⌘U** (Product → Test).
+
+The tests cover:
+
+- Capture image decoding, downsampling, invalid input, saved image files, and encoding failures.
+- Item suggestion cleanup, supported categories, expiry bounds, and unknown-item fallback.
+- Inventory deletion with an in-memory SwiftData database, including sibling preservation, last-item cleanup, and missing image files.
+- Recipe response cleanup, preservation of selected ingredients, and rejection of meals without preparation steps.
+
+AI response validation uses fixed inputs, so these tests do not require Apple Intelligence. File tests use temporary folders and never access your saved captures. Camera hardware, successful Vision segmentation, and live Foundation Models output still need device or integration testing.
+
+From Terminal, use an installed iOS 27 simulator name:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+  -project Stuff.xcodeproj -scheme Stuff \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' \
+  CODE_SIGNING_ALLOWED=NO
+```
