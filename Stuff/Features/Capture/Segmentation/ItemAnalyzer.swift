@@ -49,17 +49,14 @@ enum ItemAnalyzer {
                         Attachment(cgImage)
                     }
                     let suggestion = response.content
-                    let cleanName = suggestion.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    draft.name = cleanName.isEmpty ? "Unknown item" : String(cleanName.prefix(80))
-                    draft.categoryName = FoodCategory.all.first {
-                        $0.name.caseInsensitiveCompare(suggestion.category.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
-                    }?.name ?? "Unknown"
-                    draft.storageNote = String(suggestion.storageNote.prefix(160))
-                    if (1...365).contains(suggestion.estimatedDays), draft.name != "Unknown item" {
-                        draft.expiresAt = Calendar.current.date(byAdding: .day, value: suggestion.estimatedDays, to: capturedAt)
-                        draft.hasExpiryEstimate = draft.expiresAt != nil
-                        draft.expirySource = draft.hasExpiryEstimate ? "estimated" : "unknown"
-                    }
+                    draft = makeDraft(
+                        image: image,
+                        name: suggestion.name,
+                        category: suggestion.category,
+                        estimatedDays: suggestion.estimatedDays,
+                        storageNote: suggestion.storageNote,
+                        capturedAt: capturedAt
+                    )
                 } catch {
                     // A failed or unavailable model leaves an editable unknown item.
                 }
@@ -67,6 +64,31 @@ enum ItemAnalyzer {
             drafts.append(draft)
         }
         return drafts
+    }
+
+    /// Validate model output separately from the on-device model request.
+    static func makeDraft(
+        image: UIImage,
+        name: String,
+        category: String,
+        estimatedDays: Int,
+        storageNote: String,
+        capturedAt: Date,
+        calendar: Calendar = .current
+    ) -> ItemDraft {
+        var draft = ItemDraft(image: image)
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        draft.name = cleanName.isEmpty ? "Unknown item" : String(cleanName.prefix(80))
+        draft.categoryName = FoodCategory.all.first {
+            $0.name.caseInsensitiveCompare(category.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
+        }?.name ?? "Unknown"
+        draft.storageNote = String(storageNote.prefix(160))
+        if (1...365).contains(estimatedDays), draft.name != "Unknown item" {
+            draft.expiresAt = calendar.date(byAdding: .day, value: estimatedDays, to: capturedAt)
+            draft.hasExpiryEstimate = draft.expiresAt != nil
+            draft.expirySource = draft.hasExpiryEstimate ? "estimated" : "unknown"
+        }
+        return draft
     }
 }
 #endif

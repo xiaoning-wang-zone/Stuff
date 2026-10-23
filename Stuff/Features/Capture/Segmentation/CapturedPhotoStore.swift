@@ -17,7 +17,8 @@ enum CapturedPhotoStore {
         id: UUID,
         original: UIImage,
         foreground: UIImage,
-        items: [UIImage]
+        items: [UIImage],
+        directory: URL = capturesDirectory
     ) throws -> URL {
         guard let originalData = original.jpegData(compressionQuality: 0.9),
               let foregroundData = foreground.pngData() else {
@@ -28,7 +29,7 @@ enum CapturedPhotoStore {
             return data
         }
 
-        let photoDirectory = capturesDirectory.appendingPathComponent(id.uuidString, isDirectory: true)
+        let photoDirectory = directory.appendingPathComponent(id.uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: photoDirectory, withIntermediateDirectories: true)
 
         do {

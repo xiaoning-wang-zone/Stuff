@@ -3,9 +3,16 @@ import SwiftData
 
 @MainActor
 enum StoredItemStore {
-    static func delete(_ item: StoredItem, in context: ModelContext) throws {
+    static func delete(
+        _ item: StoredItem,
+        in context: ModelContext,
+        capturesDirectory: URL? = nil
+    ) throws {
         let captureID = item.captureID
-        let itemURL = item.imageURL
+        let itemURL = capturesDirectory.map {
+            $0.appendingPathComponent(captureID.uuidString, isDirectory: true)
+                .appendingPathComponent("item-\(item.itemNumber).png")
+        } ?? item.imageURL
         let siblingDescriptor = FetchDescriptor<StoredItem>(
             predicate: #Predicate { $0.captureID == captureID }
         )

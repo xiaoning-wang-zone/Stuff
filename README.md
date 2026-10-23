@@ -159,4 +159,26 @@ Created by [Xiaoning Wang](https://github.com/xiaoning-wang-zone) as a capstone 
 
 ## License
 
-A license has not yet been added to this repository.
+The project can be built in Xcode for an iPhone. Recipe generation itself requires an Apple Intelligence-capable iPhone with Apple Intelligence enabled.
+
+## Unit tests
+
+The shared **Stuff** scheme includes the **StuffTests** target. Select an iOS 27 Simulator in Xcode and press **⌘U** (Product → Test).
+
+The tests cover:
+
+- Capture image decoding, downsampling, invalid input, saved image files, and encoding failures.
+- Item suggestion cleanup, supported categories, expiry bounds, and unknown-item fallback.
+- Inventory deletion with an in-memory SwiftData database, including sibling preservation, last-item cleanup, and missing image files.
+- Recipe response cleanup, preservation of selected ingredients, and rejection of meals without preparation steps.
+
+AI response validation uses fixed inputs, so these tests do not require Apple Intelligence. File tests use temporary folders and never access your saved captures. Camera hardware, successful Vision segmentation, and live Foundation Models output still need device or integration testing.
+
+From Terminal, use an installed iOS 27 simulator name:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test \
+  -project Stuff.xcodeproj -scheme Stuff \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' \
+  CODE_SIGNING_ALLOWED=NO
+```
