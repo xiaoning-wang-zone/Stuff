@@ -1,59 +1,163 @@
-# Stuff — capstone project
+# Stuff
 
-Stuff is an in-progress iPhone app for photographing purchases and organizing them as an inventory. Its visual direction is inspired by CapWords. Capture, on-device item suggestions, and local inventory storage are implemented.
+### See what you have. Get inspired to use it.
 
-## What is implemented
+Stuff is a native iPhone app that turns grocery photos into a visual food inventory. Capture your ingredients, save them as cutout stickers, and choose what you want to cook with to generate a meal idea right on your iPhone.
 
-- A SwiftUI app with **Capture**, **Storage**, and **Inspiration** tabs.
-- A Capture home screen with the device's current date and time-of-day greeting. The hero text pins near the top and fades as the page scrolls. Tapping the colorful circle opens the camera. The date cards now show saved items grouped by capture day; tapping a filled card opens that day's item gallery.
-- A full-screen camera interface using an AVFoundation preview layer, framing guides, shutter, close button, and photo-library picker. The preview fills the camera screen and uses continuous focus and exposure where supported. The app requests camera permission when needed. The photo-library picker is also available in Simulator, which has no live camera.
-- Camera capture prioritizes quick delivery over maximum photo quality. Camera and library photos are decoded to a 2048-pixel review image off the screen thread before Vision analyzes them. The live camera pauses while a captured image is being reviewed.
-- Automatic segmentation after either taking a photo or choosing one from the library. Apple's Vision `VNGenerateForegroundInstanceMaskRequest` identifies foreground instances. The app creates a combined transparent cutout and a separate cutout for each detected instance.
-- A full-screen segmentation review that animates the original photo's background fading into a solid color while the cutouts remain visible. The user can compare the original image, inspect individual cutouts, retake, or save.
-- Apple Foundation Models analyzes each cutout on the iPhone and suggests a food name, one of the 24 categories, a typical expiry date, and a storage assumption. The review sheet allows manual correction before saving. If Apple Intelligence is unavailable or analysis fails, the item remains editable with an unknown name and no expiry date.
-- SwiftData stores one `StoredCapture` per photo and one `StoredItem` per cutout. The Storage tab shows real category counts. Each category opens an image-and-name gallery with white sticker outlines; tapping an item opens its detail page. Long-press an image to delete it, or use Delete on its detail page; the detail page confirms deletion beside the top-right trash button. Deleting the last item from a capture removes that capture's saved images.
-- Inspiration shows the saved cutouts as gently floating stickers. Drag them to rearrange them, tap to select them, then tap **Generate Recipe**. Apple Foundation Models creates a meal idea on the iPhone using all selected items. The result lists the selected ingredients, any additional ingredients, and preparation steps. If the model is unavailable or the selection cannot reasonably make a meal, the app explains that instead.
+Built as a capstone project by **Xiaoning Wang**, Stuff brings together SwiftUI, computer vision, local storage, and on-device generative AI in one everyday workflow.
 
-## Capture flow
+**Capture → Review → Organize → Get inspired**
 
-1. Tap the circle on the Capture home screen.
-2. Take a photo with the shutter or choose one with the photo button.
-3. Vision processes the photo on device. If it finds foreground objects, the review screen fades away the photo background and shows the segmented result. If it finds none, the screen explains the issue and allows a retake.
-4. Review the suggested name, category, and expiry date for each cutout, then save. Each capture is written under the app's `Documents/Captures/<unique-id>/` directory as `original.jpg`, `foreground.png`, and `item-1.png`, `item-2.png`, etc. The PNGs retain transparency. SwiftData records hold the capture ID and item number so they can find the matching images.
+[Explore the features](#features) · [Run the app](#getting-started) · [Share feedback](https://github.com/xiaoning-wang-zone/Stuff/issues)
 
-Expiry dates are estimates based on what the model sees and its stated storage assumption. A photo alone cannot establish a product's actual use-by date or storage history. Check the package and edit the date when known. No photo or prompt is sent to a server by this implementation.
+## Why Stuff?
 
-## Source layout
+It is easy to forget what you bought or run out of ideas for using it. Stuff explores a more visual way to keep track of food: your own photos become the inventory, and the ingredients you select become the starting point for your next meal.
+
+The goal is to make everyday food organization more approachable and help people make better use of what they already have.
+
+## A look inside
+
+<table>
+  <tr>
+    <th>Capture history</th>
+    <th>Review your items</th>
+    <th>Find inspiration</th>
+  </tr>
+  <tr>
+    <td><img src="docs/images/capture-history.png" alt="Capture history with a colorful date card and a saved food sticker" width="250"></td>
+    <td><img src="docs/images/item-review.png" alt="Review sheet with an editable food name, category, estimated expiry date, and storage assumption" width="250"></td>
+    <td><img src="docs/images/inspiration.png" alt="Inspiration screen with a selected food sticker and the Generate Recipe button" width="250"></td>
+  </tr>
+</table>
+
+Screenshots show the development app. Item names and dates are editable model suggestions.
+
+## Features
+
+- **Photograph or import.** Take a picture with the built-in camera or choose an image from your photo library.
+- **Turn photos into stickers.** Apple Vision removes the background and creates transparent cutouts for detected foreground objects. Compare the result with the original before saving.
+- **Get a head start on item details.** On supported iPhones, Apple Foundation Models suggests a food name, category, estimated shelf life, and storage assumption. Review and correct each suggestion before saving; manual entry remains available when the model cannot help.
+- **Browse a visual inventory.** Explore 24 food categories with live item counts, sticker galleries, and item details. Revisit captures grouped by day, or delete items you no longer need.
+- **Cook from your own selection.** Drag and select ingredient stickers in Inspiration, then generate a meal idea with the selected ingredients, any suggested additions, and preparation steps. The app can also explain when it cannot suggest a suitable meal.
+- **Keep processing on your device.** Image segmentation, item suggestions, and recipe generation use Apple's on-device frameworks. Inventory records and images are stored locally; this implementation does not send photos or prompts to an app server.
+
+## Try the workflow
+
+1. Open **Capture** and tap the colorful circle.
+2. Photograph a clearly visible food item or import a photo.
+3. Inspect the background-free cutouts. Retake the photo if the objects are not separated well.
+4. Review the name, category, and optional expiry date for each item, then save.
+5. Open **Storage** to browse your inventory by category, or tap a date card in Capture to revisit that day's items.
+6. Open **Inspiration**, select ingredients, and tap **Generate Recipe** on a supported iPhone with Apple Intelligence enabled.
+
+**For a first demo:** use a well-lit photo with clearly separated ingredients, correct any suggested names, and select a small group of ingredients that you would normally cook together.
+
+## Project status
+
+Stuff is an **in-development capstone prototype**. Capture, foreground segmentation, editable item suggestions, local inventory storage, and recipe generation are implemented. The setup below runs the app from source.
+
+### Current limitations
+
+- Foreground segmentation separates visible objects; it does not identify food types. Nearby or overlapping items may become a single cutout, and some photos may produce no usable foreground.
+- Automatic item suggestions and recipes depend on Apple Intelligence availability. When item analysis is unavailable, details can be entered manually; recipe generation reports that the model is unavailable.
+- Expiry dates are estimates, not verified package dates or a measure of freshness. A photo cannot establish storage history. Check packaging and actual food condition, and correct dates when known.
+- Generated recipes may need correction. Review ingredients, dietary needs, and preparation steps before cooking.
+- Captures saved by older versions without SwiftData records do not automatically appear in the current inventory.
+
+## Getting started
+
+### Requirements
+
+| Requirement | Details |
+| --- | --- |
+| Development environment | A Mac with Xcode and an iOS SDK that supports the APIs used by this checkout, including Foundation Models image attachments |
+| Deployment target | **iOS 27.0**, as configured in `Stuff.xcodeproj` |
+| Full AI experience | A compatible iPhone with Apple Intelligence enabled and its on-device model available |
+| Camera capture | A physical iPhone; the Simulator can use the photo-library picker instead |
+| Device signing | An Apple development team or Personal Team selected in Xcode |
+| Dependencies | Apple system frameworks; no third-party packages or API keys are configured |
+
+### Build and run
+
+```sh
+git clone https://github.com/xiaoning-wang-zone/Stuff.git
+cd Stuff
+open Stuff.xcodeproj
+```
+
+1. Select the **Stuff** target in Xcode.
+2. Under **Signing & Capabilities**, enable automatic signing and select your team. If needed, use a unique bundle identifier for your local build.
+3. Choose a compatible iPhone or iOS Simulator as the run destination.
+4. For a physical iPhone, connect and trust the device and enable Developer Mode if prompted.
+5. Press **Run**. Allow camera access when you first capture a photo, or choose an image from the library.
+
+If Xcode reports missing Foundation Models APIs, check the SDK requirement above. Lowering the deployment target alone does not add support for those APIs. A Simulator run is useful for exploring the interface and imported-photo workflow; use a compatible iPhone to demonstrate the full AI experience.
+
+## How it works
+
+```text
+Camera or photo library
+          ↓
+Image decoding for review (up to 2048 pixels)
+          ↓
+Apple Vision → transparent foreground and individual item cutouts
+          ↓
+Apple Foundation Models → suggested item details
+          ↓
+User review → SwiftData records + local image files
+          ↓
+Storage galleries → ingredient selection → on-device recipe generation
+```
+
+| Technology | Role |
+| --- | --- |
+| Swift and SwiftUI | Native interface, navigation, animations, and review screens |
+| AVFoundation and PhotosUI | Camera capture and photo-library selection |
+| Vision and Core Image | Foreground instance masks and transparent image rendering |
+| Foundation Models | Structured item suggestions and recipe generation |
+| SwiftData | Capture and inventory metadata |
+| Local file storage | Original review images, combined foregrounds, and individual cutouts |
+
+### Source layout
 
 ```text
 Stuff/
-├── MyApp.swift                         App entry point
-├── ContentView.swift                   Capture/Storage/Inspiration tab navigation
-├── Shared/
-│   └── AppPalette.swift                Shared colors
+├── MyApp.swift                  App entry point and SwiftData container
+├── ContentView.swift            Capture, Storage, and Inspiration tabs
+├── Shared/                      Shared visual palette
 ├── Features/
 │   ├── Capture/
-│   │   ├── Home/                        Greeting, hero circle, date card, wheel art
-│   │   ├── Camera/                      Camera screen, native picker, framing overlay
-│   │   └── Segmentation/                Vision processing, review UI, local image saving
-│   ├── Storage/                         Category grid and category definitions
-│   └── Inspiration/                     Floating selection and on-device recipes
-└── Assets.xcassets/
+│   │   ├── Home/                Greeting, hero artwork, and capture history
+│   │   ├── Camera/              Camera interface, picker, and image decoding
+│   │   └── Segmentation/        Vision processing, item analysis, review, and saving
+│   ├── Storage/                 Models, categories, galleries, details, and deletion
+│   └── Inspiration/             Ingredient selection and recipe generation
+└── Assets.xcassets/              App assets
 ```
 
-The Xcode project uses a file-system-synchronized source group, so files in these folders are included without individual source-file entries in `project.pbxproj`.
+The Xcode project uses a file-system-synchronized source group. Capture images are saved under the app's `Documents/Captures/<capture-id>/` folder as `original.jpg`, `foreground.png`, and `item-1.png`, `item-2.png`, and so on. SwiftData links each item to its capture and image. Deleting the last item in a capture also removes that capture's saved images.
 
-## Current limits and next steps
+## Possible next steps
 
-- Vision's foreground mask separates visually prominent objects from the background. It does **not** identify food types, and nearby or overlapping products may be grouped into one instance.
-- Items from captures saved by older versions have image files but no SwiftData records, so they do not appear in Storage.
-- The Xcode project's current iPhone deployment target is **iOS 27.0**. Image input to Foundation Models requires iOS 27 and a device with Apple Intelligence enabled. Other devices can still save items after entering details manually.
-- The expiry estimate is not a food-safety guarantee. Printed dates, purchase date, package opening, temperature, and storage history are not automatically verified.
-- Recipe ideas are model suggestions. Check that all selected ingredients are suitable and fresh before preparing a meal.
+Ideas for future development, rather than features available today:
 
-## Running on an iPhone
+- Improve recognition and segmentation across more foods, lighting conditions, and crowded scenes.
+- Explore expiry reminders and clearer ways to prioritize items to use soon.
+- Add automated coverage for persistence, deletion, and model-unavailable flows.
+- Evaluate accessibility and usability with more people and devices.
 
-Open `Stuff.xcodeproj` in Xcode. In the **Stuff** target's **Signing & Capabilities**, enable automatic signing and select your Apple development team or Personal Team. Connect and trust your iPhone, enable **Settings → Privacy & Security → Developer Mode** if prompted, select the phone as the run destination, and press **Run**. If iOS reports an untrusted developer, open **Settings → General → VPN & Device Management** and allow the developer profile.
+## Feedback and contributions
+
+Have an idea, found a bug, or tried the app? [Open an issue](https://github.com/xiaoning-wang-zone/Stuff/issues) with a short description. For bugs, include the device, iOS version, steps to reproduce, and expected behavior. For a larger contribution, start with an issue so the scope can be discussed.
+
+If Stuff interests you, **star the repository** and share it with someone who enjoys native iOS apps, practical AI, or thoughtful everyday tools.
+
+## Author and acknowledgments
+
+Created by [Xiaoning Wang](https://github.com/xiaoning-wang-zone) as a capstone project. The visual direction is inspired by CapWords. Camera, vision, persistence, and AI capabilities are built with Apple frameworks.
+
+## License
 
 The project can be built in Xcode for an iPhone. Recipe generation itself requires an Apple Intelligence-capable iPhone with Apple Intelligence enabled.
 
